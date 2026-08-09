@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frågeresan — Hoppa till mål!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-top:#0A0E1A;
+    --bg-mid:#101830;
+    --bg-bottom:#0A0E1A;
+    --web:rgba(160,190,255,0.18);
+    --board:#0F1830;
+    --board-edge:#1E3A8A;
+    --panel-text:#E9EEFF;
+    --blue:#2451D6;
+    --blue-bright:#3E7BFF;
+    --red:#D6162C;
+    --red-bright:#FF2E42;
+    --gold:#FFC93C;
+    font-size:16px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    min-height:100vh;
+    font-family:'Nunito', sans-serif;
+    background:
+      radial-gradient(circle at 50% 0%, rgba(36,81,214,0.25), transparent 60%),
+      linear-gradient(180deg, var(--bg-top) 0%, var(--bg-mid) 50%, var(--bg-bottom) 100%);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    overflow-x:hidden;
+    position:relative;
+  }
+  body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    background-image:
+      repeating-linear-gradient(35deg, var(--web) 0px, var(--web) 1px, transparent 1px, transparent 90px),
+      repeating-linear-gradient(-35deg, var(--web) 0px, var(--web) 1px, transparent 1px, transparent 90px);
+    pointer-events:none;
+    z-index:0;
+  }
+  .game{
+    width:100%;
+    max-width:720px;
+    position:relative;
+    z-index:1;
+  }
+  h1{
+    font-family:'Bangers', sans-serif;
+    color:var(--red-bright);
+    text-align:center;
+    font-size:clamp(2rem, 7vw, 3.1rem);
+    letter-spacing:2px;
+    margin:0 0 2px;
+    text-shadow:
+      0 0 10px rgba(255,46,66,0.55),
+      2px 2px 0 #0A0E1A;
+  }
+  .subtitle{
+    text-align:center;
+    color:var(--panel-text);
+    font-weight:700;
+    margin:0 0 18px;
+    opacity:0.7;
+  }
+  .trail-wrap{
+    background:rgba(16,24,48,0.55);
+    border:2px solid var(--board-edge);
+    border-radius:16px;
+    padding:22px 14px 30px;
+    margin-bottom:18px;
+    position:relative;
+    box-shadow:0 0 24px rgba(36,81,214,0.25) inset;
+  }
+  .trail{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    position:relative;
+    padding-top:38px;
+  }
+  .block{
+    width:9%;
+    aspect-ratio:1/1;
+    background:linear-gradient(180deg, #1B2C5C, var(--blue));
+    border-radius:8px;
+    border-bottom:5px solid #0F1B3D;
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Bangers', sans-serif;
+    font-weight:400;
+    color:#EAF0FF;
+    font-size:0.9rem;
+    letter-spacing:1px;
+    transition:transform 0.2s ease, filter 0.2s ease;
+  }
+  .block.cleared{
+    background:linear-gradient(180deg, #E5223A, var(--red));
+    border-bottom-color:#7A0E1C;
+  }
+  .block.current{
+    filter:brightness(1.15);
+    transform:translateY(-3px);
+    box-shadow:0 0 14px rgba(62,123,255,0.6);
+  }
+  .flag{
+    position:absolute;
+    top:-30px;
+    right:-2%;
+    font-size:1.6rem;
+    filter:drop-shadow(0 0 6px rgba(255,46,66,0.6));
+  }
+  .runner{
+    position:absolute;
+    top:-32px;
+    font-size:1.8rem;
+    transition:left 0.45s cubic-bezier(.4,1.6,.5,1);
+    transform:translateX(-50%);
+    filter:drop-shadow(0 0 6px rgba(62,123,255,0.7));
+  }
+  .runner.jump{
+    animation:hop 0.45s ease;
+  }
+  @keyframes hop{
+    0%{transform:translateX(-50%) translateY(0);}
+    40%{transform:translateX(-50%) translateY(-22px);}
+    100%{transform:translateX(-50%) translateY(0);}
+  }
+  .board{
+    background:var(--board);
+    border:3px solid var(--board-edge);
+    border-radius:14px;
+    padding:22px 20px;
+    color:var(--panel-text);
+    box-shadow:0 10px 0 rgba(0,0,0,0.35), 0 0 30px rgba(214,22,44,0.12);
+  }
+  .board-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:8px;
+    margin-bottom:12px;
+    font-family:'Bangers', sans-serif;
+    letter-spacing:1px;
+  }
+  .leave-btn{
+    background:transparent;
+    color:var(--panel-text);
+    border:1px solid rgba(255,255,255,0.25);
+    border-radius:16px;
+    padding:4px 10px;
+    font-family:'Nunito', sans-serif;
+    font-weight:800;
+    font-size:0.72rem;
+    letter-spacing:0;
+    cursor:pointer;
+    opacity:0.75;
+    transition:opacity 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    white-space:nowrap;
+  }
+  .leave-btn:hover{
+    opacity:1;
+    border-color:var(--red-bright);
+    color:var(--red-bright);
+  }
+  .confirm-overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(5,8,18,0.72);
+    z-index:100;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+  }
+  .confirm-overlay.show{
+    display:flex;
+  }
+  .confirm-box{
+    background:var(--board);
+    border:3px solid var(--red-bright);
+    border-radius:14px;
+    padding:24px 22px;
+    max-width:320px;
+    text-align:center;
+    color:var(--panel-text);
+    box-shadow:0 0 30px rgba(214,22,44,0.35);
+    animation:cardIn 0.25s ease forwards;
+  }
+  .confirm-box p{
+    font-weight:700;
+    margin:0 0 18px;
+    line-height:1.4;
+  }
+  .confirm-actions{
+    display:flex;
+    gap:10px;
+    justify-content:center;
+  }
+  .confirm-yes, .confirm-no{
+    font-family:'Bangers', sans-serif;
+    letter-spacing:1px;
+    border-radius:24px;
+    padding:9px 18px;
+    cursor:pointer;
+    font-size:0.95rem;
+  }
+  .confirm-yes{
+    background:var(--red-bright);
+    border:none;
+    border-bottom:4px solid #8C0E1D;
+    color:#fff;
+  }
+  .confirm-yes:hover{filter:brightness(1.08);}
+  .confirm-no{
+    background:transparent;
+    border:2px solid var(--blue-bright);
+    color:var(--panel-text);
+  }
+  .confirm-no:hover{background:rgba(62,123,255,0.15);}
+  .progress-label{
+    font-size:1rem;
+    opacity:0.85;
+  }
+  .subject-tag{
+    background:rgba(214,22,44,0.18);
+    border:1px solid var(--red-bright);
+    color:#FFD6DA;
+    padding:3px 12px;
+    border-radius:20px;
+    font-size:0.8rem;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+  }
+  .question-text{
+    font-family:'Nunito', sans-serif;
+    font-weight:800;
+    font-size:clamp(1.1rem, 4vw, 1.4rem);
+    line-height:1.4;
+    margin:6px 0 20px;
+    min-height:2.6em;
+  }
+  .choices{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    margin-bottom:16px;
+  }
+  @media (max-width:480px){
+    .choices{grid-template-columns:1fr;}
+  }
+  .choice{
+    background:#182552;
+    color:var(--panel-text);
+    border:1px solid var(--board-edge);
+    border-radius:10px;
+    padding:12px 14px;
+    font-family:'Nunito', sans-serif;
+    font-weight:800;
+    font-size:0.95rem;
+    cursor:pointer;
+    text-align:left;
+    border-bottom:4px solid #0D1638;
+    transition:transform 0.1s ease, filter 0.15s ease, background 0.15s ease;
+  }
+  .choice:hover:not(:disabled){background:#22346E; transform:translateY(1px);}
+  .choice:disabled{cursor:default;}
+  .choice.correct{background:var(--gold); border-bottom-color:#B88A1E; color:#3A2A00;}
+  .choice.wrong{background:var(--red-bright); border-bottom-color:#8C0E1D; color:#fff;}
+  .board-actions{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .feedback{
+    font-weight:800;
+    font-family:'Bangers', sans-serif;
+    letter-spacing:0.5px;
+    min-height:1.4em;
+    font-size:1.05rem;
+  }
+  .feedback.good{color:var(--gold);}
+  .feedback.bad{color:var(--red-bright);}
+  .skip-btn{
+    background:transparent;
+    color:var(--panel-text);
+    border:2px solid var(--blue-bright);
+    border-radius:20px;
+    padding:8px 18px;
+    font-family:'Bangers', sans-serif;
+    letter-spacing:0.5px;
+    cursor:pointer;
+    transition:background 0.15s ease;
+  }
+  .skip-btn:hover{background:rgba(62,123,255,0.15);}
+  @keyframes shake{
+    0%, 100%{transform:translateX(0);}
+    20%{transform:translateX(-8px);}
+    40%{transform:translateX(7px);}
+    60%{transform:translateX(-5px);}
+    80%{transform:translateX(4px);}
+  }
+  .board.shake{
+    animation:shake 0.4s ease;
+  }
+  @keyframes glowPulse{
+    0%{box-shadow:0 10px 0 rgba(0,0,0,0.35), 0 0 0px rgba(255,201,60,0.0);}
+    40%{box-shadow:0 10px 0 rgba(0,0,0,0.35), 0 0 40px rgba(255,201,60,0.65);}
+    100%{box-shadow:0 10px 0 rgba(0,0,0,0.35), 0 0 30px rgba(214,22,44,0.12);}
+  }
+  .board.glow{
+    animation:glowPulse 0.7s ease;
+  }
+  .win-screen{
+    text-align:center;
+    color:var(--panel-text);
+    display:none;
+  }
+  .win-screen.show{display:block;}
+  .win-screen h2{
+    font-family:'Bangers', sans-serif;
+    font-size:2.2rem;
+    letter-spacing:1px;
+    color:var(--gold);
+    text-shadow:0 0 12px rgba(255,201,60,0.5);
+  }
+  .restart-btn{
+    margin-top:14px;
+    background:var(--red-bright);
+    border:none;
+    border-bottom:4px solid #8C0E1D;
+    color:#fff;
+    font-family:'Bangers', sans-serif;
+    letter-spacing:1px;
+    font-size:1.05rem;
+    padding:12px 26px;
+    border-radius:30px;
+    cursor:pointer;
+  }
+  .restart-btn:hover{filter:brightness(1.08);}
+  .perfect-reveal{
+    display:none;
+    margin:18px auto 6px;
+    max-width:420px;
+    padding:20px 18px;
+    border-radius:16px;
+    background:radial-gradient(circle at 50% 20%, rgba(255,46,66,0.25), rgba(36,81,214,0.15) 60%, transparent 100%);
+    border:2px solid var(--red-bright);
+  }
+  .perfect-reveal.show{
+    display:block;
+    animation:perfectPop 0.6s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes perfectPop{
+    0%{transform:scale(0.7); opacity:0;}
+    60%{transform:scale(1.08); opacity:1;}
+    100%{transform:scale(1);}
+  }
+  .perfect-web{
+    font-size:3rem;
+    animation:spin 3.5s linear infinite, glowText 1.4s ease-in-out infinite alternate;
+  }
+  @keyframes spin{
+    from{transform:rotate(0deg);}
+    to{transform:rotate(360deg);}
+  }
+  @keyframes glowText{
+    from{filter:drop-shadow(0 0 6px rgba(255,46,66,0.5));}
+    to{filter:drop-shadow(0 0 22px rgba(62,123,255,0.9));}
+  }
+  .perfect-title{
+    font-family:'Bangers', sans-serif;
+    letter-spacing:2px;
+    font-size:1.4rem;
+    color:var(--gold);
+    margin:8px 0 4px;
+    text-shadow:0 0 12px rgba(255,201,60,0.6);
+  }
+  .perfect-sub{
+    color:var(--panel-text);
+    opacity:0.85;
+    font-size:0.9rem;
+    margin:0;
+  }
+  .confetti-piece{
+    position:fixed;
+    top:-40px;
+    z-index:50;
+    pointer-events:none;
+    animation-name:confettiFall;
+    animation-timing-function:ease-in;
+    animation-fill-mode:forwards;
+  }
+  @keyframes confettiFall{
+    0%{transform:translateY(0) rotate(0deg); opacity:1;}
+    100%{transform:translateY(105vh) rotate(360deg); opacity:0.9;}
+  }
+  .lobby{
+    background:rgba(16,24,48,0.55);
+    border:2px solid var(--board-edge);
+    border-radius:16px;
+    padding:30px 20px 34px;
+    text-align:center;
+    box-shadow:0 0 24px rgba(36,81,214,0.25) inset;
+    position:relative;
+    overflow:hidden;
+  }
+  .lobby-thread{
+    position:absolute;
+    top:0;
+    left:0;
+    right:0;
+    height:1px;
+    background:linear-gradient(90deg, transparent, rgba(160,190,255,0.5), transparent);
+  }
+  .lobby-spider{
+    position:absolute;
+    top:0;
+    font-size:1.3rem;
+    animation:crawl 9s ease-in-out infinite;
+    filter:drop-shadow(0 0 6px rgba(255,46,66,0.6));
+  }
+  @keyframes crawl{
+    0%{left:4%; transform:translateY(0) scaleX(1);}
+    45%{left:88%; transform:translateY(4px) scaleX(1);}
+    50%{left:88%; transform:translateY(4px) scaleX(-1);}
+    95%{left:4%; transform:translateY(0) scaleX(-1);}
+    100%{left:4%; transform:translateY(0) scaleX(1);}
+  }
+  .lobby-eyebrow{
+    font-family:'Bangers', sans-serif;
+    color:var(--red-bright);
+    letter-spacing:3px;
+    font-size:0.85rem;
+    margin:16px 0 2px;
+    text-shadow:0 0 10px rgba(255,46,66,0.4);
+  }
+  .lobby-title{
+    font-family:'Bangers', sans-serif;
+    color:var(--panel-text);
+    letter-spacing:1px;
+    font-size:1.5rem;
+    margin:0 0 6px;
+  }
+  .lobby-sub{
+    color:var(--panel-text);
+    opacity:0.65;
+    font-size:0.88rem;
+    margin:0 0 22px;
+  }
+  .subject-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+  }
+  @media (max-width:480px){
+    .subject-grid{grid-template-columns:1fr;}
+  }
+  .subject-grid.full-width{
+    grid-template-columns:1fr;
+  }
+  .subject-btn{
+    --accent:#3E7BFF;
+    background:linear-gradient(180deg, #182552, #101B3E);
+    border:2px solid var(--board-edge);
+    border-left:5px solid var(--accent);
+    border-bottom:5px solid #0D1638;
+    border-radius:12px;
+    padding:18px 14px;
+    color:var(--panel-text);
+    font-family:'Bangers', sans-serif;
+    letter-spacing:1px;
+    font-size:1.15rem;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+    transition:transform 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    opacity:0;
+    animation:cardIn 0.5s ease forwards;
+  }
+  .subject-btn:nth-child(1){animation-delay:0.05s;}
+  .subject-btn:nth-child(2){animation-delay:0.12s;}
+  .subject-btn:nth-child(3){animation-delay:0.19s;}
+  .subject-btn:nth-child(4){animation-delay:0.26s;}
+  .subject-btn:nth-child(5){animation-delay:0.33s;}
+  @keyframes cardIn{
+    from{opacity:0; transform:translateY(14px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+  .subject-btn[data-subject="Matte"]{--accent:#3E7BFF;}
+  .subject-btn[data-subject="NO"]{--accent:#A657FF;}
+  .subject-btn[data-subject="Biologi"]{--accent:#2ECC71;}
+  .subject-btn[data-subject="Historia"]{--accent:#FFC93C;}
+  .subject-btn[data-subject="Geografi"]{--accent:#22D3EE;}
+  .subject-btn .icon{
+    font-size:2rem;
+    filter:drop-shadow(0 0 8px var(--accent));
+  }
+  .subject-btn .tagline{
+    font-family:'Nunito', sans-serif;
+    font-weight:700;
+    letter-spacing:0;
+    font-size:0.72rem;
+    color:var(--panel-text);
+    opacity:0.55;
+    text-transform:none;
+  }
+  .subject-btn:hover{
+    transform:translateY(-4px) scale(1.02);
+    border-color:var(--accent);
+    background:linear-gradient(180deg, #22346E, #142049);
+    box-shadow:0 8px 18px rgba(0,0,0,0.35), 0 0 20px color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  .subject-btn:active{
+    transform:translateY(1px) scale(0.99);
+  }
+  .win-actions{
+    display:flex;
+    gap:12px;
+    justify-content:center;
+    flex-wrap:wrap;
+    margin-top:14px;
+  }
+  .lobby-btn{
+    background:transparent;
+    border:2px solid var(--blue-bright);
+    color:var(--panel-text);
+    font-family:'Bangers', sans-serif;
+    letter-spacing:1px;
+    font-size:1.05rem;
+    padding:12px 24px;
+    border-radius:30px;
+    cursor:pointer;
+    transition:background 0.15s ease;
+  }
+  .lobby-btn:hover{background:rgba(62,123,255,0.15);}
+</style>
+</head>
+<body>
+<div class="game">
+  <h1>🕸️ Frågeresan</h1>
+  <p class="subtitle">Svara rätt och hoppa framåt! Hoppa över om du kör fast — 10 block till målet.</p>
+
+  <div class="lobby" id="lobby">
+    <div class="lobby-thread"></div>
+    <span class="lobby-spider">🕷️</span>
+    <p class="lobby-eyebrow">VÄLJ DITT UPPDRAG</p>
+    <p class="lobby-title">Vilket ämne vill du erövra?</p>
+    <p class="lobby-sub">10 block, 10 frågor — svara rätt hela vägen för en hemlig belöning.</p>
+    <div class="subject-grid">
+      <button class="subject-btn" data-subject="Matte"><span class="icon">🔢</span>Matte<span class="tagline">Tal &amp; problemlösning</span></button>
+      <button class="subject-btn" data-subject="NO"><span class="icon">🧪</span>NO<span class="tagline">Fysik, kemi &amp; rymden</span></button>
+      <button class="subject-btn" data-subject="Biologi"><span class="icon">🧬</span>Biologi<span class="tagline">Kroppen, celler &amp; natur</span></button>
+      <button class="subject-btn" data-subject="Historia"><span class="icon">🏛️</span>Historia<span class="tagline">Forntid till nutid</span></button>
+      <button class="subject-btn full-width" data-subject="Geografi"><span class="icon">🌍</span>Geografi<span class="tagline">Länder, hav &amp; berg</span></button>
+    </div>
+  </div>
+
+  <div class="game-area" id="gameArea" style="display:none;">
+    <div class="trail-wrap">
+      <div class="trail" id="trail">
+        <span class="flag">🚩</span>
+        <span class="runner" id="runner">🕷️</span>
+      </div>
+    </div>
+
+    <div class="board" id="board">
+      <div class="board-top">
+        <button class="leave-btn" id="leaveBtn" title="Lämna resan och gå till lobbyn">🏠 Lobby</button>
+        <span class="progress-label" id="progressLabel">Block 1 av 10</span>
+        <span class="subject-tag" id="subjectTag">Matte</span>
+      </div>
+      <div class="question-text" id="questionText">Laddar fråga...</div>
+      <div class="choices" id="choices"></div>
+      <div class="board-actions">
+        <span class="feedback" id="feedback"></span>
+        <button class="skip-btn" id="skipBtn">Hoppa över fråga ⏭</button>
+      </div>
+    </div>
+
+    <div class="win-screen" id="winScreen">
+      <h2>🏆 Du nådde målet!</h2>
+      <p id="scoreLine">Du fick 0 av 10 rätt direkt!</p>
+      <div class="perfect-reveal" id="perfectReveal">
+        <div class="perfect-web">🕸️</div>
+        <p class="perfect-title">SPINDELSINNET ÄR UPPLÅST</p>
+        <p class="perfect-sub">Alla 10 block klarade utan ett enda fel eller skip. Legendariskt.</p>
+      </div>
+      <div class="win-actions">
+        <button class="restart-btn" id="restartBtn">Spela igen</button>
+        <button class="lobby-btn" id="backToLobbyBtn">Till lobbyn</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <p>Vill du lämna resan och gå till lobbyn?<br>Ditt framsteg i den här omgången går förlorat.</p>
+    <div class="confirm-actions">
+      <button class="confirm-yes" id="confirmYes">Ja, lämna</button>
+      <button class="confirm-no" id="confirmNo">Avbryt</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TOTAL_BLOCKS = 10;
+
+const QUESTION_BANK = [
+  // Matte (10)
+  {subject:"Matte", q:"Vad är 8 × 7?", choices:["54","56","64","48"], answer:1},
+  {subject:"Matte", q:"Vad är 144 ÷ 12?", choices:["11","12","13","10"], answer:1},
+  {subject:"Matte", q:"Förenkla bråket 6/9.", choices:["2/3","3/4","1/2","4/6"], answer:0},
+  {subject:"Matte", q:"Vad är värdet av 5²?", choices:["10","15","25","20"], answer:2},
+  {subject:"Matte", q:"Vad är 15 % av 200?", choices:["20","30","25","35"], answer:1},
+  {subject:"Matte", q:"Hur många grader är det totalt i en triangel?", choices:["90°","180°","270°","360°"], answer:1},
+  {subject:"Matte", q:"Vad är -8 + 12?", choices:["-4","4","20","-20"], answer:1},
+  {subject:"Matte", q:"Vad är 9²?", choices:["81","72","99","90"], answer:0},
+  {subject:"Matte", q:"Vilket är minsta gemensamma nämnaren för 4 och 6?", choices:["12","24","8","10"], answer:0},
+  {subject:"Matte", q:"Vad är 7/10 skrivet som decimaltal?", choices:["0,7","7,0","0,07","70"], answer:0},
+  // NO – fysik, kemi, astronomi (10)
+  {subject:"NO", q:"Vilken planet kallas den röda planeten?", choices:["Venus","Jupiter","Mars","Saturnus"], answer:2},
+  {subject:"NO", q:"Vilket aggregationstillstånd har fast form och volym?", choices:["Gas","Vätska","Fast form","Plasma"], answer:2},
+  {subject:"NO", q:"Vilken kraft drar föremål mot jorden?", choices:["Magnetism","Gravitation","Friktion","Spänning"], answer:1},
+  {subject:"NO", q:"Vad kallas H2O i vardagligt tal?", choices:["Salt","Vatten","Socker","Syre"], answer:1},
+  {subject:"NO", q:"Vad mäter en termometer?", choices:["Temperatur","Tryck","Vikt","Hastighet"], answer:0},
+  {subject:"NO", q:"Vilken kemisk beteckning har syre?", choices:["O","S","Au","H"], answer:0},
+  {subject:"NO", q:"Vad kallas övergången från is till vatten?", choices:["Smältning","Avdunstning","Kondensation","Frysning"], answer:0},
+  {subject:"NO", q:"Ungefär hur många grundämnen finns i periodiska systemet?", choices:["Ca 20","Ca 60","Ca 118","Ca 300"], answer:2},
+  {subject:"NO", q:"Vad kallas jordens naturliga satellit?", choices:["Månen","Mars","Solen","Venus"], answer:0},
+  {subject:"NO", q:"Vilken enhet mäter man ljudstyrka i?", choices:["Decibel","Watt","Newton","Joule"], answer:0},
+  // Biologi (10)
+  {subject:"Biologi", q:"Vad kallas cellens 'kraftverk'?", choices:["Cellkärna","Ribosom","Mitokondrie","Cellvägg"], answer:2},
+  {subject:"Biologi", q:"Vilken gas tar växter upp från luften vid fotosyntes?", choices:["Syre","Koldioxid","Kväve","Väte"], answer:1},
+  {subject:"Biologi", q:"Hur många ben har en vuxen människa?", choices:["206","186","256","150"], answer:0},
+  {subject:"Biologi", q:"Vilket organ pumpar blod runt i kroppen?", choices:["Hjärtat","Levern","Lungan","Njuren"], answer:0},
+  {subject:"Biologi", q:"Vad kallas processen där växter gör om solljus till energi?", choices:["Fotosyntes","Andning","Nedbrytning","Cellandning"], answer:0},
+  {subject:"Biologi", q:"Vilket organ renar blodet från gifter?", choices:["Hjärtat","Levern","Magen","Lungan"], answer:1},
+  {subject:"Biologi", q:"Vad kallas djur som bara äter växter?", choices:["Karnivorer","Herbivorer","Omnivorer","Parasiter"], answer:1},
+  {subject:"Biologi", q:"Hur många kammare har ett människohjärta?", choices:["2","3","4","5"], answer:2},
+  {subject:"Biologi", q:"Vilken kroppsdel använder du för att andas?", choices:["Lungorna","Njurarna","Magen","Levern"], answer:0},
+  {subject:"Biologi", q:"Vad kallas den minsta byggstenen i kroppen?", choices:["Cellen","Molekylen","Atomen","Vävnaden"], answer:0},
+  // Historia (10)
+  {subject:"Historia", q:"Vem var USA:s förste president?", choices:["Thomas Jefferson","Abraham Lincoln","George Washington","John Adams"], answer:2},
+  {subject:"Historia", q:"I vilken antik civilisation byggdes pyramiderna i Giza?", choices:["Rom","Grekland","Egypten","Mesopotamien"], answer:2},
+  {subject:"Historia", q:"Kinesiska muren byggdes för att skydda vilket land?", choices:["Japan","Kina","Indien","Mongoliet"], answer:1},
+  {subject:"Historia", q:"Vilket krig tog slut 1945?", choices:["Första världskriget","Andra världskriget","Kalla kriget","Amerikanska inbördeskriget"], answer:1},
+  {subject:"Historia", q:"Vem utvecklade relativitetsteorin?", choices:["Isaac Newton","Albert Einstein","Galileo Galilei","Nikola Tesla"], answer:1},
+  {subject:"Historia", q:"Vilket år startade andra världskriget?", choices:["1937","1939","1941","1945"], answer:1},
+  {subject:"Historia", q:"Vilken drottning av Egypten var känd för sin makt och skönhet?", choices:["Kleopatra","Nefertiti","Hatshepsut","Isis"], answer:0},
+  {subject:"Historia", q:"Vilken civilisation byggde Colosseum?", choices:["Grekland","Rom","Egypten","Persien"], answer:1},
+  {subject:"Historia", q:"Vem seglade till Amerika 1492?", choices:["Vasco da Gama","Christofer Columbus","Marco Polo","Ferdinand Magellan"], answer:1},
+  {subject:"Historia", q:"Vilken region kom vikingarna ursprungligen från?", choices:["Skandinavien","Frankrike","Spanien","Italien"], answer:0},
+  // Geografi (10)
+  {subject:"Geografi", q:"Vilken är världens längsta flod?", choices:["Amazonfloden","Nilen","Yangtze","Mississippi"], answer:1},
+  {subject:"Geografi", q:"På vilken kontinent ligger Sahara?", choices:["Asien","Afrika","Australien","Sydamerika"], answer:1},
+  {subject:"Geografi", q:"Vad är Frankrikes huvudstad?", choices:["Berlin","Madrid","Paris","Rom"], answer:2},
+  {subject:"Geografi", q:"Vilket är världens största hav?", choices:["Atlanten","Indiska oceanen","Norra ishavet","Stilla havet"], answer:3},
+  {subject:"Geografi", q:"I vilken bergskedja ligger Mount Everest?", choices:["Anderna","Alperna","Himalaya","Klippiga bergen"], answer:2},
+  {subject:"Geografi", q:"Vilket är världens minsta land?", choices:["Vatikanstaten","Monaco","San Marino","Liechtenstein"], answer:0},
+  {subject:"Geografi", q:"Vad är Sveriges huvudstad?", choices:["Göteborg","Malmö","Stockholm","Uppsala"], answer:2},
+  {subject:"Geografi", q:"På vilken kontinent ligger Amazonas regnskog?", choices:["Afrika","Sydamerika","Asien","Australien"], answer:1},
+  {subject:"Geografi", q:"Vilket hav ligger mellan Europa och Nordamerika?", choices:["Atlanten","Stilla havet","Indiska oceanen","Norra ishavet"], answer:0},
+  {subject:"Geografi", q:"Vilket land har flest tidszoner i världen?", choices:["Ryssland","USA","Frankrike","Kina"], answer:2},
+];
+
+let deck = [];
+let currentBlock = 1;
+let currentQuestion = null;
+let answered = false;
+let score = 0;
+let blockClean = true;
+let selectedSubject = null;
+let subjectQuestions = [];
+
+// --- Ljudeffekter (syntetiserade, inga externa filer behövs) ---
+let audioCtx = null;
+function getAudioCtx(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if(audioCtx.state === 'suspended'){
+    audioCtx.resume();
+  }
+  return audioCtx;
+}
+
+function playTone(freq, startTime, duration, type='sine', peakGain=0.22){
+  const ctx = getAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, startTime);
+  gain.gain.setValueAtTime(0.0001, startTime);
+  gain.gain.exponentialRampToValueAtTime(peakGain, startTime + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(startTime);
+  osc.stop(startTime + duration + 0.02);
+}
+
+function playCorrectSound(){
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+  playTone(523.25, now, 0.14, 'triangle');
+  playTone(659.25, now + 0.1, 0.14, 'triangle');
+  playTone(783.99, now + 0.2, 0.22, 'triangle');
+}
+
+function playWrongSound(){
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+  playTone(220, now, 0.18, 'sawtooth', 0.16);
+  playTone(164.81, now + 0.12, 0.24, 'sawtooth', 0.16);
+}
+
+function playWinSound(){
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+  [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+    playTone(freq, now + i*0.14, 0.3, 'triangle', 0.22);
+  });
+}
+
+const trailEl = document.getElementById('trail');
+const runnerEl = document.getElementById('runner');
+const boardEl = document.getElementById('board');
+const lobbyEl = document.getElementById('lobby');
+const gameAreaEl = document.getElementById('gameArea');
+const progressLabel = document.getElementById('progressLabel');
+const subjectTag = document.getElementById('subjectTag');
+const questionText = document.getElementById('questionText');
+const choicesEl = document.getElementById('choices');
+const feedbackEl = document.getElementById('feedback');
+const skipBtn = document.getElementById('skipBtn');
+const winScreen = document.getElementById('winScreen');
+const scoreLine = document.getElementById('scoreLine');
+const perfectReveal = document.getElementById('perfectReveal');
+const restartBtn = document.getElementById('restartBtn');
+const backToLobbyBtn = document.getElementById('backToLobbyBtn');
+const leaveBtn = document.getElementById('leaveBtn');
+const confirmOverlay = document.getElementById('confirmOverlay');
+const confirmYes = document.getElementById('confirmYes');
+const confirmNo = document.getElementById('confirmNo');
+
+function shuffle(arr){
+  const a = [...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function buildBlocks(){
+  trailEl.querySelectorAll('.block').forEach(b=>b.remove());
+  for(let i=1;i<=TOTAL_BLOCKS;i++){
+    const b = document.createElement('div');
+    b.className = 'block';
+    b.dataset.index = i;
+    b.textContent = i;
+    trailEl.insertBefore(b, runnerEl);
+  }
+  updateBlocks();
+}
+
+function updateBlocks(){
+  const blocks = trailEl.querySelectorAll('.block');
+  blocks.forEach(b=>{
+    const idx = parseInt(b.dataset.index);
+    b.classList.toggle('cleared', idx < currentBlock);
+    b.classList.toggle('current', idx === currentBlock);
+  });
+  positionRunner();
+}
+
+function positionRunner(){
+  const blocks = trailEl.querySelectorAll('.block');
+  const targetIdx = Math.min(currentBlock, TOTAL_BLOCKS) - 1;
+  const targetBlock = blocks[targetIdx];
+  if(!targetBlock) return;
+  const trailRect = trailEl.getBoundingClientRect();
+  const blockRect = targetBlock.getBoundingClientRect();
+  const centerPercent = ((blockRect.left + blockRect.width/2) - trailRect.left) / trailRect.width * 100;
+  runnerEl.style.left = centerPercent + '%';
+}
+
+function nextDeckQuestion(){
+  if(deck.length === 0){
+    deck = shuffle(subjectQuestions);
+  }
+  return deck.pop();
+}
+
+function startBlock(){
+  blockClean = true;
+  loadQuestion();
+}
+
+function loadQuestion(){
+  answered = false;
+  currentQuestion = nextDeckQuestion();
+  progressLabel.textContent = `Block ${currentBlock} av ${TOTAL_BLOCKS}`;
+  subjectTag.textContent = currentQuestion.subject;
+  questionText.textContent = currentQuestion.q;
+  feedbackEl.textContent = '';
+  feedbackEl.className = 'feedback';
+
+  choicesEl.innerHTML = '';
+  currentQuestion.choices.forEach((choiceText, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'choice';
+    btn.textContent = choiceText;
+    btn.addEventListener('click', () => handleAnswer(i, btn));
+    choicesEl.appendChild(btn);
+  });
+}
+
+function handleAnswer(selectedIndex, btnEl){
+  if(answered) return;
+  answered = true;
+  const correctIndex = currentQuestion.answer;
+  const allBtns = choicesEl.querySelectorAll('.choice');
+  allBtns.forEach(b=>b.disabled = true);
+
+  if(selectedIndex === correctIndex){
+    btnEl.classList.add('correct');
+    feedbackEl.textContent = 'Rätt! Hoppar framåt...';
+    feedbackEl.classList.add('good');
+    if(blockClean) score++;
+    playCorrectSound();
+    boardEl.classList.remove('shake');
+    boardEl.classList.add('glow');
+    setTimeout(()=>boardEl.classList.remove('glow'), 700);
+    setTimeout(advance, 700);
+  } else {
+    btnEl.classList.add('wrong');
+    allBtns[correctIndex].classList.add('correct');
+    feedbackEl.textContent = 'Fel svar — nästa fråga.';
+    feedbackEl.classList.add('bad');
+    blockClean = false;
+    playWrongSound();
+    boardEl.classList.remove('glow');
+    boardEl.classList.add('shake');
+    setTimeout(()=>boardEl.classList.remove('shake'), 400);
+    setTimeout(loadQuestion, 1100);
+  }
+}
+
+function advance(){
+  currentBlock++;
+  if(currentBlock > TOTAL_BLOCKS){
+    runnerEl.classList.add('jump');
+    updateBlocks();
+    setTimeout(()=>{
+      boardEl.style.display = 'none';
+      showWinScreen();
+    }, 500);
+    return;
+  }
+  runnerEl.classList.remove('jump');
+  void runnerEl.offsetWidth;
+  runnerEl.classList.add('jump');
+  updateBlocks();
+  startBlock();
+}
+
+function showWinScreen(){
+  winScreen.classList.add('show');
+  scoreLine.textContent = `Du fick ${score} av ${TOTAL_BLOCKS} rätt direkt!`;
+  playWinSound();
+  if(score === TOTAL_BLOCKS){
+    perfectReveal.classList.add('show');
+    launchConfetti();
+  } else {
+    perfectReveal.classList.remove('show');
+  }
+}
+
+function launchConfetti(){
+  const pieces = ['🕸️','🕷️','⭐','✨'];
+  for(let i=0;i<40;i++){
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.textContent = pieces[Math.floor(Math.random()*pieces.length)];
+    el.style.left = Math.random()*100 + 'vw';
+    el.style.animationDuration = (2.2 + Math.random()*1.8) + 's';
+    el.style.animationDelay = (Math.random()*0.6) + 's';
+    el.style.fontSize = (1 + Math.random()*1.2) + 'rem';
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(), 5000);
+  }
+}
+
+function startGameWithSubject(subject){
+  selectedSubject = subject;
+  subjectQuestions = QUESTION_BANK.filter(q => q.subject === subject);
+  deck = [];
+  currentBlock = 1;
+  score = 0;
+  lobbyEl.style.display = 'none';
+  gameAreaEl.style.display = '';
+  boardEl.style.display = '';
+  winScreen.classList.remove('show');
+  perfectReveal.classList.remove('show');
+  buildBlocks();
+  startBlock();
+}
+
+document.querySelectorAll('.subject-btn').forEach(btn => {
+  btn.addEventListener('click', () => startGameWithSubject(btn.dataset.subject));
+});
+
+skipBtn.addEventListener('click', () => {
+  if(answered) return;
+  blockClean = false;
+  loadQuestion();
+});
+
+restartBtn.addEventListener('click', () => {
+  startGameWithSubject(selectedSubject);
+});
+
+function leaveToLobby(){
+  answered = true;
+  gameAreaEl.style.display = 'none';
+  boardEl.style.display = '';
+  winScreen.classList.remove('show');
+  perfectReveal.classList.remove('show');
+  lobbyEl.style.display = '';
+}
+
+leaveBtn.addEventListener('click', () => {
+  confirmOverlay.classList.add('show');
+});
+
+confirmYes.addEventListener('click', () => {
+  confirmOverlay.classList.remove('show');
+  leaveToLobby();
+});
+
+confirmNo.addEventListener('click', () => {
+  confirmOverlay.classList.remove('show');
+});
+
+backToLobbyBtn.addEventListener('click', leaveToLobby);
+
+window.addEventListener('resize', positionRunner);
+</script>
+</body>
+</html>
+<div class="lobby" id="lobby">
+  <div class="lobby-thread"></div>
+  <span class="lobby-spider">🕷️</span>
+
+  <a href="https://www.youtube.com/watch?v=zswT92VzOYM" target="_blank" class="yt-button">
+    🎮 Interesting Game
+  </a>
+</div>
